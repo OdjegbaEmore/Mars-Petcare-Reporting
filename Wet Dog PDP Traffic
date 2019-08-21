@@ -1,0 +1,358 @@
+---
+title: "Wet Dog PDP Traffic"
+output: md_document
+---
+
+
+Setting up GA Connection
+```{r}
+#Packages To install
+install.packages("Rcpp")
+install.packages("googleAnalyticsR")
+install.packages("urltools")
+library(lubridate)
+library(googleAnalyticsR)
+library(ggplot2)
+#Settings
+options(scipen=999)
+#Connecting to Google Analytics API
+clientid<-"803674718940-ogi2pd1hm8i8h00tbdmreogsp4ntcdce.apps.googleusercontent.com"
+clientsecret<-"R0n4v1mDdVESYI6B5ZKxgZ9m"
+options(googleAuthR.webapp.client_id = clientid)
+options(googleAuthR.webapp.client_secret = clientsecret)
+ga_auth()
+ga_account_list()
+# Acount Variables
+Cesar<-"192925080"
+Crave<-"177153627"
+IAMS<-"193001901"
+Nutro<-"193005537"
+Temptations<- "192980975"
+Sheba<-"193022100"
+Greenies<-"192986366"
+Pedigree<-"193007251"
+Cesar_Q1<-"135182718"
+IAMS_Q1<-"182582800"
+Nutro_Q1<-"64009025"
+Temptations_Q1<- "57918920"
+Greenies_Q1<-"153330624"
+Pedigree_Q1<-"140387404"
+Sheba_Q1 <-"135124959"
+```
+
+Goal: Produce a chart that shows the trend of Wet Dog PDP traffic over the past year.
+
+Data Needs: 
+  Page x User x Purchase Event x PIR x Page Type x POP Category
+
+GA Pulls Required:
+ Month x Pages x Users
+
+ Notes:
+1. You must combine data from Q1 the comeplete 2019 related data. 
+2. Date format: YYYY-MM-DD
+ 
+
+Creating Functions & Filters
+```{r}
+f_user <- met_filter("users", "GREATER_THAN", "100")
+fc_user <- filter_clause_ga4(list(f_user), operator = "OR")
+
+Page_Traffic.By.Month<-function(x,y,z){google_analytics(x,
+                                           date_range=c(y,z),
+                               metrics=c("users","sessions"),
+                         dimensions = c("month","pagePath"),
+                         met_filters = fc_user,
+                                               anti_sample=TRUE)}
+```
+
+Creating Datasets
+```{r}
+#pulling GA data
+Q2_IAMS_Monthly_Users.by.Page <- Page_Traffic.By.Month(IAMS,"2019-04-01","2019-06-30")
+Q1_IAMS_Monthly_Users.by.Page <- Page_Traffic.By.Month(IAMS_Q1,"2019-01-01","2019-03-31")
+Q2_Nutro_Monthly_Users.by.Page <- Page_Traffic.By.Month(Nutro,"2019-04-01","2019-06-30")
+Q1_Nutro_Monthly_Users.by.Page <- Page_Traffic.By.Month(Nutro_Q1,"2019-01-01","2019-03-31")
+Q2_Cesar_Monthly_Users.by.Page <- Page_Traffic.By.Month(Cesar,"2019-04-01","2019-06-30")
+Q1_Cesar_Monthly_Users.by.Page <- Page_Traffic.By.Month(Cesar_Q1,"2019-01-01","2019-03-31")
+Crave_Monthly_Users.by.Page <- Page_Traffic.By.Month(Crave,"2019-01-01","2019-06-30")
+#combining 
+IAMS_Monthly_Users.by.Page <- rbind(Q1_IAMS_Monthly_Users.by.Page,Q2_IAMS_Monthly_Users.by.Page)
+Nutro_Monthly_Users.by.Page <- rbind(Q1_Nutro_Monthly_Users.by.Page,Q2_Nutro_Monthly_Users.by.Page)
+Cesar_Monthly_Users.by.Page <- rbind(Q1_Cesar_Monthly_Users.by.Page,Q2_Cesar_Monthly_Users.by.Page)
+#labling dates
+IAMS_Monthly_Users.by.Page$month<-ifelse(IAMS_Monthly_Users.by.Page$month == "01","2019-01",
+                                 ifelse(IAMS_Monthly_Users.by.Page$month == "02","2019-02",
+                                 ifelse(IAMS_Monthly_Users.by.Page$month =="03","2019-03",
+                                 ifelse(IAMS_Monthly_Users.by.Page$month == "04","2019-04",
+                                 ifelse(IAMS_Monthly_Users.by.Page$month == "05","2019-05",
+                                ifelse(IAMS_Monthly_Users.by.Page$month == "06","2019-06","NA")
+                                )))))
+Nutro_Monthly_Users.by.Page$month<-ifelse(Nutro_Monthly_Users.by.Page$month == "01","2019-01",
+                                 ifelse(Nutro_Monthly_Users.by.Page$month == "02","2019-02",
+                                 ifelse(Nutro_Monthly_Users.by.Page$month =="03","2019-03",
+                                 ifelse(Nutro_Monthly_Users.by.Page$month == "04","2019-04",
+                                 ifelse(Nutro_Monthly_Users.by.Page$month == "05","2019-05",
+                                ifelse(Nutro_Monthly_Users.by.Page$month == "06","2019-06","NA")
+                                )))))
+Cesar_Monthly_Users.by.Page$month<-ifelse(Cesar_Monthly_Users.by.Page$month == "01","2019-01",
+                                 ifelse(Cesar_Monthly_Users.by.Page$month == "02","2019-02",
+                                 ifelse(Cesar_Monthly_Users.by.Page$month =="03","2019-03",
+                                 ifelse(Cesar_Monthly_Users.by.Page$month == "04","2019-04",
+                                 ifelse(Cesar_Monthly_Users.by.Page$month == "05","2019-05",
+                                ifelse(Cesar_Monthly_Users.by.Page$month == "06","2019-06","NA")
+                                )))))
+Crave_Monthly_Users.by.Page$month<-ifelse(Crave_Monthly_Users.by.Page$month == "01","2019-01",
+                                 ifelse(Crave_Monthly_Users.by.Page$month == "02","2019-02",
+                                 ifelse(Crave_Monthly_Users.by.Page$month =="03","2019-03",
+                                 ifelse(Crave_Monthly_Users.by.Page$month == "04","2019-04",
+                                 ifelse(Crave_Monthly_Users.by.Page$month == "05","2019-05",
+                                ifelse(Crave_Monthly_Users.by.Page$month == "06","2019-06","NA")
+                                )))))
+#open classifier doc
+IAMS_Page_Classifier <- read.csv("IAMS_Page_Classifier.csv")
+Nutro_Page_Classifier <- read.csv("Nutro_Page_Classifier.csv")
+Cesar_Page_Classifier <- read.csv("Cesar_Page_Classifier.csv")
+Crave_Page_Classifier <- read.csv("Crave_Page_Classifier.csv")
+
+#Merge 
+IAMS_Classied_Monthly_Users.by.Page <- merge(IAMS_Page_Classifier,IAMS_Monthly_Users.by.Page)
+Nutro_Classied_Monthly_Users.by.Page <- merge(Nutro_Page_Classifier,Nutro_Monthly_Users.by.Page)
+Cesar_Classied_Monthly_Users.by.Page <- merge(Cesar_Page_Classifier,Cesar_Monthly_Users.by.Page)
+Crave_Classied_Monthly_Users.by.Page <- merge(Crave_Page_Classifier,Crave_Monthly_Users.by.Page)
+
+#Order by 
+IAMS_Classied_Monthly_Users.by.Page <- IAMS_Classied_Monthly_Users.by.Page[order(IAMS_Classied_Monthly_Users.by.Page$pagePath),]
+Nutro_Classied_Monthly_Users.by.Page <- Nutro_Classied_Monthly_Users.by.Page[order(Nutro_Classied_Monthly_Users.by.Page$pagePath),]
+Cesar_Classied_Monthly_Users.by.Page <- Cesar_Classied_Monthly_Users.by.Page[order(Cesar_Classied_Monthly_Users.by.Page$pagePath),]
+Crave_Classied_Monthly_Users.by.Page <- Crave_Classied_Monthly_Users.by.Page[order(Crave_Classied_Monthly_Users.by.Page$pagePath),]
+
+#Subsetting PDPs
+IAMS_PDPs_Monthly_Users.by.Page <- subset(IAMS_Classied_Monthly_Users.by.Page, IAMS_Classied_Monthly_Users.by.Page$Page_Type=="Products" & IAMS_Classied_Monthly_Users.by.Page$Cat_Dog=="Dog")
+Nutro_PDPs_Monthly_Users.by.Page <- subset(Nutro_Classied_Monthly_Users.by.Page, Nutro_Classied_Monthly_Users.by.Page$Page_Type=="Products" & Nutro_Classied_Monthly_Users.by.Page$Cat_Dog=="Dog")
+Cesar_PDPs_Monthly_Users.by.Page <- subset(Cesar_Classied_Monthly_Users.by.Page, Cesar_Classied_Monthly_Users.by.Page$Page_Type=="Products")
+Crave_PDPs_Monthly_Users.by.Page <- subset(Crave_Classied_Monthly_Users.by.Page, Crave_Classied_Monthly_Users.by.Page$Page_Type=="Products" & Crave_Classied_Monthly_Users.by.Page$Cat_Dog=="Dog")
+
+#Subsetting Wet PDPs
+IAMS_WETDOGPDP_Monthly_Users.by.Page <- subset(IAMS_PDPs_Monthly_Users.by.Page, IAMS_PDPs_Monthly_Users.by.Page$Product_Type=="Wet")
+Nutro_WETDOGPDP_Monthly_Users.by.Page <- subset(Nutro_PDPs_Monthly_Users.by.Page, Nutro_PDPs_Monthly_Users.by.Page$Product_Type=="Wet")
+Cesar_WETDOGPDP_Monthly_Users.by.Page <- subset(Cesar_PDPs_Monthly_Users.by.Page, Cesar_PDPs_Monthly_Users.by.Page$Product_Type=="Wet")
+Crave_WETDOGPDP_Monthly_Users.by.Page <- subset(Crave_Classied_Monthly_Users.by.Page, Crave_Classied_Monthly_Users.by.Page$Product_Type=="Wet")
+
+#Creating Wet PDP Users per Month dataframe
+IAMS_WETDOGPDP_Jan<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-01")
+IAMS_WETDOGPDP_Feb<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-02")
+IAMS_WETDOGPDP_Mar<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-03")
+IAMS_WETDOGPDP_Apr<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-04")
+IAMS_WETDOGPDP_May<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-05")
+IAMS_WETDOGPDP_Jun<-subset(IAMS_WETDOGPDP_Monthly_Users.by.Page,month=="2019-06")
+
+Nutro_WETDOGPDP_Jan<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-01")
+Nutro_WETDOGPDP_Feb<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-02")
+Nutro_WETDOGPDP_Mar<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-03")
+Nutro_WETDOGPDP_Apr<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-04")
+Nutro_WETDOGPDP_May<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-05")
+Nutro_WETDOGPDP_Jun<-subset(Nutro_WETDOGPDP_Monthly_Users.by.Page,month=="2019-06")
+
+Cesar_WETDOGPDP_Jan<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-01")
+Cesar_WETDOGPDP_Feb<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-02")
+Cesar_WETDOGPDP_Mar<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-03")
+Cesar_WETDOGPDP_Apr<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-04")
+Cesar_WETDOGPDP_May<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-05")
+Cesar_WETDOGPDP_Jun<-subset(Cesar_WETDOGPDP_Monthly_Users.by.Page,month=="2019-06")
+
+Crave_WETDOGPDP_Jan<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-01")
+Crave_WETDOGPDP_Feb<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-02")
+Crave_WETDOGPDP_Mar<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-03")
+Crave_WETDOGPDP_Apr<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-04")
+Crave_WETDOGPDP_May<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-05")
+Crave_WETDOGPDP_Jun<-subset(Crave_WETDOGPDP_Monthly_Users.by.Page,month=="2019-06")
+
+IAMS_WETDOGPDP_Jan_Users<-sum(IAMS_WETDOGPDP_Jan$users)
+IAMS_WETDOGPDP_Feb_Users<-sum(IAMS_WETDOGPDP_Feb$users)
+IAMS_WETDOGPDP_Mar_Users<-sum(IAMS_WETDOGPDP_Mar$users)
+IAMS_WETDOGPDP_Apr_Users<-sum(IAMS_WETDOGPDP_Apr$users)
+IAMS_WETDOGPDP_May_Users<-sum(IAMS_WETDOGPDP_May$users)
+IAMS_WETDOGPDP_Jun_Users<-sum(IAMS_WETDOGPDP_Jun$users)
+
+Nutro_WETDOGPDP_Jan_Users<-sum(Nutro_WETDOGPDP_Jan$users)
+Nutro_WETDOGPDP_Feb_Users<-sum(Nutro_WETDOGPDP_Feb$users)
+Nutro_WETDOGPDP_Mar_Users<-sum(Nutro_WETDOGPDP_Mar$users)
+Nutro_WETDOGPDP_Apr_Users<-sum(Nutro_WETDOGPDP_Apr$users)
+Nutro_WETDOGPDP_May_Users<-sum(Nutro_WETDOGPDP_May$users)
+Nutro_WETDOGPDP_Jun_Users<-sum(Nutro_WETDOGPDP_Jun$users)
+
+Cesar_WETDOGPDP_Jan_Users<-sum(Cesar_WETDOGPDP_Jan$users)
+Cesar_WETDOGPDP_Feb_Users<-sum(Cesar_WETDOGPDP_Feb$users)
+Cesar_WETDOGPDP_Mar_Users<-sum(Cesar_WETDOGPDP_Mar$users)
+Cesar_WETDOGPDP_Apr_Users<-sum(Cesar_WETDOGPDP_Apr$users)
+Cesar_WETDOGPDP_May_Users<-sum(Cesar_WETDOGPDP_May$users)
+Cesar_WETDOGPDP_Jun_Users<-sum(Cesar_WETDOGPDP_Jun$users)
+
+Crave_WETDOGPDP_Jan_Users<-sum(Crave_WETDOGPDP_Jan$users)
+Crave_WETDOGPDP_Feb_Users<-sum(Crave_WETDOGPDP_Feb$users)
+Crave_WETDOGPDP_Mar_Users<-sum(Crave_WETDOGPDP_Mar$users)
+Crave_WETDOGPDP_Apr_Users<-sum(Crave_WETDOGPDP_Apr$users)
+Crave_WETDOGPDP_May_Users<-sum(Crave_WETDOGPDP_May$users)
+Crave_WETDOGPDP_Jun_Users<-sum(Crave_WETDOGPDP_Jun$users)
+
+IAMS_WETDOGPDP_Monthly.USERS <- rbind(IAMS_WETDOGPDP_Jan_Users,IAMS_WETDOGPDP_Feb_Users,IAMS_WETDOGPDP_Mar_Users,IAMS_WETDOGPDP_Apr_Users,IAMS_WETDOGPDP_May_Users,IAMS_WETDOGPDP_Jun_Users)
+Nutro_WETDOGPDP_Monthly.USERS <- rbind(Nutro_WETDOGPDP_Jan_Users,Nutro_WETDOGPDP_Feb_Users,Nutro_WETDOGPDP_Mar_Users,Nutro_WETDOGPDP_Apr_Users,Nutro_WETDOGPDP_May_Users,Nutro_WETDOGPDP_Jun_Users)
+Cesar_WETDOGPDP_Monthly.USERS <- rbind(Cesar_WETDOGPDP_Jan_Users,Cesar_WETDOGPDP_Feb_Users,Cesar_WETDOGPDP_Mar_Users,Cesar_WETDOGPDP_Apr_Users,Cesar_WETDOGPDP_May_Users,Cesar_WETDOGPDP_Jun_Users)
+Crave_WETDOGPDP_Monthly.USERS <- rbind(Crave_WETDOGPDP_Jan_Users,Crave_WETDOGPDP_Feb_Users,Crave_WETDOGPDP_Mar_Users,Crave_WETDOGPDP_Apr_Users,Crave_WETDOGPDP_May_Users,Crave_WETDOGPDP_Jun_Users)
+
+
+IAMS_WETDOGPDP_Monthly.USERS <- data.frame(IAMS_WETDOGPDP_Monthly.USERS)
+Nutro_WETDOGPDP_Monthly.USERS <- data.frame(Nutro_WETDOGPDP_Monthly.USERS)
+Cesar_WETDOGPDP_Monthly.USERS <- data.frame(Cesar_WETDOGPDP_Monthly.USERS)
+Crave_WETDOGPDP_Monthly.USERS <- data.frame(Crave_WETDOGPDP_Monthly.USERS)
+
+  
+IAMS_WETDOGPDP_Monthly.USERS$month<- c("01/2019","02/2019","03/2019","04/2019","05/2019","06/2019")
+IAMS_WETDOGPDP_Monthly.USERS$PDP_Typer<- c("Wet Dog Food")
+  colnames(IAMS_WETDOGPDP_Monthly.USERS)<- c("users","month","PDP_Type")
+row.names(IAMS_WETDOGPDP_Monthly.USERS)<- c("1","2","3","4","5","6")
+
+Nutro_WETDOGPDP_Monthly.USERS$month<- c("01/2019","02/2019","03/2019","04/2019","05/2019","06/2019")
+Nutro_WETDOGPDP_Monthly.USERS$PDP_Typer<- c("Wet Dog Food")
+  colnames(Nutro_WETDOGPDP_Monthly.USERS)<- c("users","month","PDP_Type")
+row.names(Nutro_WETDOGPDP_Monthly.USERS)<- c("1","2","3","4","5","6")
+
+Cesar_WETDOGPDP_Monthly.USERS$month<- c("01/2019","02/2019","03/2019","04/2019","05/2019","06/2019")
+Cesar_WETDOGPDP_Monthly.USERS$PDP_Typer<- c("Wet Dog Food")
+  colnames(Cesar_WETDOGPDP_Monthly.USERS)<- c("users","month","PDP_Type")
+row.names(Cesar_WETDOGPDP_Monthly.USERS)<- c("1","2","3","4","5","6")
+
+Crave_WETDOGPDP_Monthly.USERS$month<- c("01/2019","02/2019","03/2019","04/2019","05/2019","06/2019")
+Crave_WETDOGPDP_Monthly.USERS$PDP_Typer<- c("Wet Dog Food")
+  colnames(Crave_WETDOGPDP_Monthly.USERS)<- c("users","month","PDP_Type")
+row.names(Crave_WETDOGPDP_Monthly.USERS)<- c("1","2","3","4","5","6")
+
+```
+
+Building the Graphs
+```{r}
+IAMS_WetPDPs.by.month_Plot <- ggplot(data = IAMS_WETDOGPDP_Monthly.USERS, aes(x=month, y=users, group=PDP_Type, color=PDP_Type))+ 
+   geom_point()+
+  geom_path()+
+  ggtitle("2019 IAMS Wet Dog PDP Traffic")+
+   labs(fill="PDP Category")+
+  labs(x="Month", y="Users",  color= "PDP Type")+
+   ylim(0,800)+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.position = "none",
+        plot.title = element_text(size=15))
+IAMS_WetPDPs.by.month_Plot
+
+
+Nutro_WetPDPs.by.month_Plot <- ggplot(data = Nutro_WETDOGPDP_Monthly.USERS, aes(x=month, y=users, group=PDP_Type, color=PDP_Type))+ 
+   geom_point()+
+  geom_path()+
+  ggtitle("2019 Nutro Wet Dog PDP Traffic")+
+   labs(fill="PDP Category")+
+  labs(x="Month", y="Users", color= "PDP Type")+
+   ylim(0,3500)+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.position = "none",
+        plot.title = element_text(size=15))
+Nutro_WetPDPs.by.month_Plot
+
+Cesar_WetPDPs.by.month_Plot <- ggplot(data = Cesar_WETDOGPDP_Monthly.USERS, aes(x=month, y=users, group=PDP_Type, color=PDP_Type))+ 
+   geom_point()+
+  geom_path()+
+  ggtitle("2019 Cesar Wet Dog PDP Traffic")+
+   labs(fill="PDP Category")+
+  labs(x="Month", y="Users",  color= "PDP Type")+
+   ylim(0,4100)+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+        legend.position = "none",
+        plot.title = element_text(size=15))
+Cesar_WetPDPs.by.month_Plot
+
+Crave_WetPDPs.by.month_Plot <- ggplot(data = Crave_WETDOGPDP_Monthly.USERS, aes(x=month, y=users, group=PDP_Type, color=PDP_Type))+ 
+   geom_point()+
+  geom_path()+
+  ggtitle("2019 Crave Wet Dog PDP Traffic")+
+   labs(fill="PDP Category")+
+  labs(x="Month", y="Users", color= "PDP Type")+
+   ylim(0,600)+
+  theme(axis.title.x = element_text(size = 15),
+        axis.title.y = element_text(size = 15),
+        axis.text.x = element_text(size = 10),
+        axis.text.y = element_text(size = 10),
+      legend.position = "none",
+        plot.title = element_text(size=15))
+Crave_WetPDPs.by.month_Plot
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CODE  APENDIX
+```{r}
+###---Puling multiple reports
+Q2Page_Users.by.Month <- make_ga_4_req(IAMS,
+                       date_range=c("2019-04-01","2019-06-30"),
+                       metrics=c("users","sessions"),
+                       dimensions = c("month","pagePath"))
+
+Q1Page_Users.by.Month <- make_ga_4_req(IAMS_,
+                       date_range=c("2019-01-01","2019-03-31"),
+                       metrics=c("users","sessions"),
+                       dimensions = c("month","pagePath"))
+fetch_google_analytics_4(list(Q1Page_Users.by.Month,Q2Page_Users.by.Month))
+
+#PDP boxplot
+ggplot(data = IAMS_WETDOGPDP_Monthly_Users.by.Page, aes(x=month, y=users))+ 
+ geom_boxplot(size=1.2) +
+ geom_jitter(aes(color=pagePath))+
+  geom_path()+
+ ggtitle("2019 IAMS Wet Dog PDP Traffic")+
+ labs(color="Products")
+
+#Sort by
+IAMS_WETDOGPDP_Monthly_Users.by.Page <-IAMS_WETDOGPDP_Monthly_Users.by.Page[order(IAMS_WETDOGPDP_Monthly_Users.by.Page$month),]
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
